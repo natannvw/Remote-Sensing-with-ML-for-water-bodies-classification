@@ -4,6 +4,10 @@ import numpy as np
 import pandas as pd
 from typing import Tuple
 import earthpy.spatial as es
+from tqdm.auto import tqdm
+from sklearn.metrics import accuracy_score
+
+import matplotlib.pyplot as plt
 
 
 def dn2reflectance(
@@ -195,7 +199,7 @@ def classify_ndwi(
     bands_names: list[str],
     ndwi_thres: float = 0.5,
     nodata: float = 0,
-) -> np.ma.core.MaskedArray:
+) -> np.ndarray:
     """
     Calculate the Normalized Difference Water Index (NDWI)
     For more information see:
@@ -217,7 +221,7 @@ def classify_ndwi(
 
     Returns
     -------
-    mask_ndwi : np.ma.core.MaskedArray
+    mask_ndwi : numpy.ndarray
         The NDWI mask
 
     Example
@@ -238,7 +242,28 @@ def classify_ndwi(
     padding_mask = datacube[0, :, :] == nodata
     mask_ndwi[padding_mask] = nodata
 
+    mask_ndwi = mask_ndwi.data.astype(int)
+
     return mask_ndwi
+
+
+def evaluate_classification(mask_ndwi, mask_ground_truth, nodata=-1):
+    # Flatten the masks to compare them element-wise
+    predicted = mask_ndwi.flatten()
+    true = mask_ground_truth.flatten()
+
+    # Filter out nodata values
+    valid_indices = true != nodata
+    predicted_valid = predicted[valid_indices]
+    true_valid = true[valid_indices]
+
+    # Check if arrays are empty
+    if len(predicted_valid) == 0 or len(true_valid) == 0:
+        return None
+
+    accuracy = accuracy_score(true_valid, predicted_valid)
+
+    return accuracy
 
 
 # from matplotlib import pyplot as plt
