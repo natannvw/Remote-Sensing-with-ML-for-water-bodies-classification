@@ -3,6 +3,7 @@ import rasterio
 import numpy as np
 import pandas as pd
 from typing import Tuple
+import earthpy.spatial as es
 
 
 def dn2reflectance(
@@ -57,6 +58,9 @@ def get_satellite_wavelength(satellite) -> dict:
             "B11": 1.6137,  # Band 11 - SWIR 1
             "B12": 2.22024,  # Band 12 - SWIR 2
         }
+
+    else:
+        raise ValueError(f"Satellite {satellite} not implemented yet")
 
     return wavelength
 
@@ -119,6 +123,65 @@ def calc_avg_water_probability(
 
     return avg_water_probability
 
+
+def calc_ndwi(
+    datacube, satellite, bands_names, nodata=0, Green=None, NIR=None
+) -> float:
+    """
+    Calculate the Normalized Difference Water Index (NDWI)
+    For more information see:
+    https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndwi/
+    https://en.wikipedia.org/wiki/Normalized_difference_water_index
+
+    Parameters
+    ----------
+    datacube : numpy.ndarray
+        The datacube of the scene
+    satellite : str
+        The satellite name
+    bands_names : list of str
+        The names of the bands in the datacube
+    nodata : int, optional
+        The nodata value, by default 0
+    Green : numpy.ndarray, optional
+        The green band, by default None
+    NIR : numpy.ndarray, optional
+        The near infrared band, by default None
+
+    Returns
+    -------
+    ndwi : numpy.ndarray
+        The NDWI values
+
+    Example
+    -------
+    >>> import rasterio
+    >>> import numpy as np
+    >>> raster = rasterio.open('test.tif')
+    >>> datacube = raster.read()
+    >>> bands_names = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12']
+    >>> ndwi = calc_ndwi(datacube, 'sentinel2', bands_names)
+    """
+
+    if (Green is None) or (NIR is None):
+        if "sentinel" in satellite:
+            Green_band_number = "B03"
+            NIR_band_number = "B08"
+        else:
+            raise ValueError(f"Satellite {satellite} not implemented yet")
+
+        Green_band_index = bands_names.index(Green_band_number)
+        NIR_band_index = bands_names.index(NIR_band_number)
+
+        Green = datacube[Green_band_index, :, :]
+        NIR = datacube[NIR_band_index, :, :]
+
+    Green_masked = np.ma.masked_where(Green == nodata, Green)
+    NIR_masked = np.ma.masked_where(NIR == nodata, NIR)
+
+    ndwi = es.normalized_diff(Green_masked, NIR_masked)
+
+    return ndwi
 
 # from matplotlib import pyplot as plt
 
