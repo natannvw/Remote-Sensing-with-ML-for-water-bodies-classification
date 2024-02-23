@@ -7,7 +7,7 @@ from typing import Tuple
 
 def dn2reflectance(
     dn, gain=None, offset=None, satellite="sentinel2", process_lvl="L1C"
-):
+) -> np.ndarray:
     if "sentinel2" in satellite:
         if process_lvl == "L1C":
             gain = 0.0001
@@ -118,3 +118,13 @@ def calc_avg_water_probability(
     avg_water_probability = df["water_probability"].mean()
 
     return avg_water_probability
+
+
+# from matplotlib import pyplot as plt
+
+# plt.imshow(scenes_list[0][0, :, :], cmap='gray')
+
+
+# import importlib
+
+# importlib.reload(utils)
