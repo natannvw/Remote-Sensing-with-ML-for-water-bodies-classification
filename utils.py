@@ -266,6 +266,39 @@ def evaluate_classification(mask_ndwi, mask_ground_truth, nodata=-1):
     return accuracy
 
 
+def optimize_ndwi_threshold(
+    scenes_list, scenes_masks_list, bands_names, thresholds=np.linspace(-0.5, 0.5, 21)
+):
+    best_acc = 0
+    best_threshold = 0
+
+    for threshold in tqdm(thresholds, total=len(thresholds)):
+        accuracies = []
+
+        for scene, scene_mask in zip(scenes_list, scenes_masks_list):
+            water_mask = classify_ndwi(
+                scene,
+                satellite="sentinel2",
+                bands_names=bands_names,
+                ndwi_thres=threshold,
+            )
+            accuracy = evaluate_classification(
+                mask_ndwi=water_mask, mask_ground_truth=scene_mask
+            )
+
+            if accuracy is not None:
+                accuracies.append(accuracy)
+            # else:
+            # print("Skipping scene with no valid pixels")
+
+            if accuracies:
+                mean_accuracy = np.mean(accuracies)
+                if mean_accuracy > best_acc:
+                    best_acc = mean_accuracy
+                    best_threshold = threshold
+
+    return best_threshold, best_acc
+
 # from matplotlib import pyplot as plt
 
 # plt.imshow(scenes_list[0][0, :, :], cmap='gray')
