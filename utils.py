@@ -1,6 +1,7 @@
 import os
 import rasterio
 import numpy as np
+import pandas as pd
 from typing import Tuple
 
 
@@ -107,3 +108,13 @@ def calc_water_probabilities(scenes_masks: np.ndarray) -> np.ndarray:
         water_probabilities.append(water_probability)
 
     return np.array(water_probabilities)
+
+
+def calc_avg_water_probability(
+    df: pd.DataFrame, water_probabilities_df: pd.DataFrame
+) -> float:
+    df["chip_id"] = df["scene"].str.extract("_(\d+)_").astype(int)
+    df = df.merge(water_probabilities_df, on="chip_id", how="left")
+    avg_water_probability = df["water_probability"].mean()
+
+    return avg_water_probability
