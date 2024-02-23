@@ -125,8 +125,13 @@ def calc_avg_water_probability(
 
 
 def calc_ndwi(
-    datacube, satellite, bands_names, nodata=0, Green=None, NIR=None
-) -> float:
+    datacube: np.ndarray,
+    satellite: str,
+    bands_names: list[str],
+    nodata: float = 0,
+    Green: np.ndarray = None,
+    NIR: np.ndarray = None,
+) -> np.ma.core.MaskedArray:
     """
     Calculate the Normalized Difference Water Index (NDWI)
     For more information see:
@@ -141,7 +146,7 @@ def calc_ndwi(
         The satellite name
     bands_names : list of str
         The names of the bands in the datacube
-    nodata : int, optional
+    nodata : float, optional
         The nodata value, by default 0
     Green : numpy.ndarray, optional
         The green band, by default None
@@ -182,6 +187,59 @@ def calc_ndwi(
     ndwi = es.normalized_diff(Green_masked, NIR_masked)
 
     return ndwi
+
+
+def classify_ndwi(
+    datacube: np.ma.core.MaskedArray,
+    satellite: str,
+    bands_names: list[str],
+    ndwi_thres: float = 0.5,
+    nodata: float = 0,
+) -> np.ma.core.MaskedArray:
+    """
+    Calculate the Normalized Difference Water Index (NDWI)
+    For more information see:
+    https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndwi/
+    https://en.wikipedia.org/wiki/Normalized_difference_water_index
+
+    Parameters
+    ----------
+    datacube : numpy.ndarray
+        The datacube of the scene
+    satellite : str
+        The satellite name
+    bands_names : list of str
+        The names of the bands in the datacube
+    ndwi_thres : float, optional
+        The NDWI threshold, by default -0.1
+    nodata : float, optional
+        The nodata value, by default 0
+
+    Returns
+    -------
+    mask_ndwi : np.ma.core.MaskedArray
+        The NDWI mask
+
+    Example
+    -------
+    >>> import rasterio
+    >>> import numpy as np
+    >>> raster = rasterio.open('test.tif')
+    >>> datacube = raster.read()
+    >>> bands_names = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+    >>> mask_ndwi = classify_ndwi(datacube, 'landsat', bands_names)
+    """
+
+    ndwi = calc_ndwi(datacube, satellite, bands_names)
+    # plt.imshow(ndwi, vmin=-1, vmax=1, cmap='turbo_r')
+
+    mask_ndwi = ndwi > ndwi_thres
+
+    padding_mask = datacube[0, :, :] == nodata
+    mask_ndwi[padding_mask] = nodata
+
+    return mask_ndwi
+
 
 # from matplotlib import pyplot as plt
 
