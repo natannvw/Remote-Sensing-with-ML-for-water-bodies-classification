@@ -299,6 +299,31 @@ def optimize_ndwi_threshold(
 
     return best_threshold, best_acc
 
+
+def visualize_comparison(
+    scene,
+    ground_truth,
+    bands_names,
+    threshold,
+    title="NDWI vs Ground Truth",
+    nodata=-1,
+):
+    ndwi_mask = classify_ndwi(
+        scene, satellite="sentinel2", bands_names=bands_names, ndwi_thres=threshold
+    )
+
+    nodata_indices = np.where(ground_truth == nodata)
+    ndwi_mask[nodata_indices] = nodata
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(ndwi_mask, cmap="turbo")
+    ax[0].set_title("NDWI-based Water Detection")
+    ax[1].imshow(ground_truth, cmap="turbo")
+    ax[1].set_title("Ground Truth")
+    plt.suptitle(title)
+    plt.show()
+
+
 # from matplotlib import pyplot as plt
 
 # plt.imshow(scenes_list[0][0, :, :], cmap='gray')
