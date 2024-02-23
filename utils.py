@@ -1,6 +1,7 @@
 import os
 import rasterio
 import numpy as np
+from typing import Tuple
 
 
 def dn2reflectance(
@@ -63,25 +64,46 @@ def get_bands_names(wavelength) -> list:
     return list(wavelength.keys())
 
 
-def get_scenes_list(dir_path):
-    image_paths = [
+def get_scenes_list(dir_path: str) -> Tuple[list, list]:
+    scenes_paths = [
         os.path.join(dir_path, filename)
         for filename in os.listdir(dir_path)
         if filename.endswith(".tif")
     ]
 
     scenes_list = []
+    chip_ids = []
 
     # Read the image data into a list of arrays
-    for image_path in image_paths:
+    for image_path in scenes_paths:
         with rasterio.open(image_path) as src:
             scenes_list.append(src.read())
 
-    return scenes_list
+            # Extract the chip_id (CHIPID part of the filename)
+            chip_id = os.path.basename(image_path).split("_")[1]
+            chip_ids.append(chip_id)
+
+    return scenes_list, chip_ids
 
 
 def get_scenes_arr(dir_path):
     # Convert into (scenes, bands, height, width)
 
-    scenes_list = get_scenes_list(dir_path)
-    return np.array(scenes_list)
+    scenes_list, chip_ids = get_scenes_list(dir_path)
+
+    return np.array(scenes_list), np.array(chip_ids)
+
+
+def calc_water_probabilities(scenes_masks: np.ndarray) -> np.ndarray:
+    water_probabilities = []
+
+    for i in range(scenes_masks.shape[0]):
+        labels = scenes_masks[i, 0, :, :]
+
+        valid_pixels = np.sum(labels != -1)  # -1: No Data / Not Valid
+        water_pixels = np.sum(labels == 1)
+
+        water_probability = water_pixels / valid_pixels if valid_pixels > 0 else None
+        water_probabilities.append(water_probability)
+
+    return np.array(water_probabilities)
