@@ -1,3 +1,8 @@
+import os
+import rasterio
+import numpy as np
+
+
 def dn2reflectance(
     dn, gain=None, offset=None, satellite="sentinel2", process_lvl="L1C"
 ):
@@ -56,3 +61,27 @@ def get_satellite_wavelength(satellite) -> dict:
 
 def get_bands_names(wavelength) -> list:
     return list(wavelength.keys())
+
+
+def get_scenes_list(dir_path):
+    image_paths = [
+        os.path.join(dir_path, filename)
+        for filename in os.listdir(dir_path)
+        if filename.endswith(".tif")
+    ]
+
+    scenes_list = []
+
+    # Read the image data into a list of arrays
+    for image_path in image_paths:
+        with rasterio.open(image_path) as src:
+            scenes_list.append(src.read())
+
+    return scenes_list
+
+
+def get_scenes_arr(dir_path):
+    # Convert into (scenes, bands, height, width)
+
+    scenes_list = get_scenes_list(dir_path)
+    return np.array(scenes_list)
