@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import os
 import pandas as pd
+from typing import Tuple
 
 
 def read_image(path):
@@ -120,6 +121,37 @@ def decode_label(label):
 
 def decode_chip_id(chip_id):
     return chip_id.numpy()[0]
+
+
+def parse_tfrecord(tfrecord_path) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    raw_dataset = tf.data.TFRecordDataset(tfrecord_path)
+    feature_description = get_feature_description()
+
+    parsed_dataset = raw_dataset.map(
+        lambda example_proto: _parse_function(example_proto, feature_description)
+    )
+    images = []
+    labels = []
+    chip_ids = []
+
+    for parsed_record in parsed_dataset:
+        image_bytes = parsed_record["image"]
+        label_bytes = parsed_record["label"]
+        chip_id = parsed_record["chip_id"]
+
+        image = decode_image(image_bytes)
+        label = decode_label(label_bytes)
+        chip_id = decode_chip_id(chip_id)
+
+        images.append(image)
+        labels.append(label)
+        chip_ids.append(chip_id)
+
+    images = np.array(images)
+    labels = np.array(labels)
+    chip_ids = np.array(chip_ids)
+
+    return images, labels, chip_ids
 
 
 if __name__ == "__main__":
