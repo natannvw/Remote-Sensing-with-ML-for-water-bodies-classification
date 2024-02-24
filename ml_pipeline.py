@@ -37,14 +37,16 @@ def get_dataset(
     return images, labels, chip_ids
 
 
-def convert_to_df(images, labels=None):
+def convert_to_df(images: np.ndarray, labels=None):
     shape = images.shape
     n_images, bands, height, width = shape
 
-    # train_images_flattened = raster.datacube.reshape(bands, -1).T
     train_images_flattened = images.reshape(-1, bands)
+
     if labels is not None:
-        train_labels_flattened = labels.flatten()
+        labels = np.expand_dims(labels, axis=1)
+        band = 1
+        train_labels_flattened = labels.reshape(-1, band)
 
     wavelengths = utils.get_satellite_wavelength("sentinel2")
     bands_names = utils.get_bands_names(wavelengths)
@@ -121,7 +123,7 @@ def ml_pipeline() -> RandomForestClassifier:
     valid_df = feature_engineering(valid_df)
 
     # Because the dataset is too big, we will sample a fraction of it (ML is not a good for this task (images), but it is just an example. Better use CNNs or other deep learning models)
-    fraction = 0.0001
+    fraction = 0.001
     train_df = train_df.sample(frac=fraction, random_state=42)
     valid_df = valid_df.sample(frac=fraction, random_state=42)
 
@@ -133,15 +135,19 @@ def ml_pipeline() -> RandomForestClassifier:
     X_valid = valid_df.drop(target, axis=1)
     y_valid = valid_df[target]
 
-    best_estimator, best_params, best_score = train_optimize(X_train, y_train)
+    # model, best_params, best_score = train_optimize(X_train, y_train)
+    model = RandomForestClassifier(
+        random_state=42,
+    )
+    model.fit(X_train, y_train)
 
-    y_pred = best_estimator.predict(X_valid)
+    y_pred = model.predict(X_valid)
 
     accuracy = accuracy_score(y_valid, y_pred)
 
     print("Accuracy on validation set:", accuracy)
 
-    return best_estimator
+    return model
 
 
 def predict_pipeline(
@@ -156,29 +162,26 @@ def predict_pipeline(
 
     # Adding features
     features = list(model.feature_names_in_)
-    if "NDVI" in features:
+    if "NDWI" in features:
         test_df["NDWI"] = calc_ndwi_df(test_df, satellite="sentinel2")
 
-    target = "label"
-    X_test = test_df.drop(target, axis=1)
+    y_pred = model.predict(test_df)
 
-    y_pred = model.predict(X_test)
-
-    _, _, height, width = shape
-    y_pred_reshaped = y_pred.reshape(height, width)
+    n_images, bands, height, width = shape
+    band = 1  # We have only one band for the predicted labeled image
+    y_pred_reshaped = y_pred.reshape(n_images, band, height, width)
 
     return y_pred_reshaped
 
 
 if __name__ == "__main__":
-    model = ml_pipeline()  # TODO: Uncomment this line
-    # model = RandomForestClassifier()  # TODO: Remove this line
+    model = ml_pipeline()
 
     # Predict on test data
     test_images, test_labels, chip_ids = get_dataset(data="bolivia")
 
     # Select the chip_id
-    chip_id = 129334
+    chip_id = 103757
     image = test_images[chip_ids == chip_id]
     label = test_labels[chip_ids == chip_id]
 
@@ -187,9 +190,9 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-    ax[0].imshow(predicted, cmap="turbo")
+    ax[0].imshow(predicted[0, 0, :, :], cmap="turbo")
     ax[0].set_title("Predicted Image")
-    ax[1].imshow(label, cmap="turbo")
+    ax[1].imshow(label[0, :, :], cmap="turbo")
     ax[1].set_title("Label")
     title = f"Predicted Image and Label for Chip ID {chip_id}"
     plt.suptitle(title)
