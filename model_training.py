@@ -6,7 +6,7 @@ from sklearn.model_selection import GridSearchCV
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "True"
 
 
-def train_optimize(X_train, y_train):
+def train_optimize(X_train, y_train, verbose=1):
     # Example parameter grid
     # param_grid = {'bootstrap': True, 'criterion': 'entropy', 'max_depth': 8, 'min_samples_leaf': 2, 'min_samples_split': 10, 'n_estimators': 100}
     # param_grid = {
@@ -19,8 +19,8 @@ def train_optimize(X_train, y_train):
     # }
 
     param_grid = {
-        "n_estimators": [100, 200, 300],
-        "max_depth": [5, 10, 15, None],
+        "n_estimators": [100, 150, 200],
+        "max_depth": [5, 10, None],
         "min_samples_split": [2, 5],
         "min_samples_leaf": [1, 2, 3],
     }
@@ -32,10 +32,10 @@ def train_optimize(X_train, y_train):
     grid_search = GridSearchCV(
         estimator=rf,
         param_grid=param_grid,
-        cv=10,
+        cv=5,
         n_jobs=-1,
         scoring="accuracy",
-        verbose=1,
+        verbose=verbose,
     )
 
     # Fit grid_search to the data
