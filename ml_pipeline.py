@@ -105,6 +105,9 @@ def ml_pipeline(
     train_images, train_labels = get_dataset(data="train")
     valid_images, val_labels = get_dataset(data="valid")
 
+    train_images = utils.dn2reflectance(train_images)
+    valid_images = utils.dn2reflectance(valid_images)
+
     train_df = convert_to_df(train_images, train_labels)
     valid_df = convert_to_df(valid_images, val_labels)
     model = RandomForestClassifier()
