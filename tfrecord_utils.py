@@ -2,6 +2,7 @@ import rasterio
 import numpy as np
 import tensorflow as tf
 import os
+import pandas as pd
 
 
 def read_image(path):
@@ -21,14 +22,6 @@ def read_label(path):
     return label_array.astype(np.uint8)  # Convert to uint8 for TensorFlow processing
 
 
-image_path = r"C:\Users\NathanWeinstein\Desktop\Personal\G\SenFloods\sen1floods11\v1.1\data\flood_events\HandLabeled\S2Hand\Bolivia_23014_S2Hand.tif"
-label_path = r"C:\Users\NathanWeinstein\Desktop\Personal\G\SenFloods\sen1floods11\v1.1\data\flood_events\HandLabeled\LabelHand\Bolivia_23014_LabelHand.tif"
-
-image_array = read_image(image_path)
-label_array = read_label(label_path)
-chip_id = int(os.path.basename(image_path).split("_")[1])
-
-
 def _bytes_feature(value):
     """Returns a bytes_list from a string / byte."""
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -39,7 +32,11 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
 
 
-def create_example(image_array, label_array, chip_id):
+def create_tf_example(
+    image_array,
+    label_array,
+    chip_id,
+):
     """
     Converts an image, its label, and metadata (e.g., image ID) to a tf.train.Example message.
 
@@ -67,17 +64,47 @@ def create_example(image_array, label_array, chip_id):
     return example_proto.SerializeToString()
 
 
-# create_example(image_array, label_array, chip_id)
-
-
-def write_tfrecord(tfrecord_filename, images, labels):
+def write_tfrecord(tfrecord_filename, split_df, S2Hand_path, LabelHand_path):
     """Writes given images and labels to a TFRecord file."""
     with tf.io.TFRecordWriter(tfrecord_filename) as writer:
-        for image, label in zip(images, labels):
-            example = create_example(image, label)
+        for idx, row in split_df.iterrows():
+            image_path = os.path.join(
+                S2Hand_path, row["scene"].replace("S1Hand", "S2Hand")
+            )
+            label_path = os.path.join(LabelHand_path, row["mask"])
+
+            image_array = read_image(image_path)
+            label_array = read_label(label_path)
+            chip_id = int(os.path.basename(image_path).split("_")[1])
+
+            # from matplotlib import pyplot as plt
+
+            # plt.figure()
+            # plt.imshow(label_array, cmap="turbo")
+
+            example = create_tf_example(image_array, label_array, chip_id)
+
             writer.write(example)
 
 
-# Example usage
-# images and labels should be loaded as numpy arrays beforehand
-# write_tfrecord('dataset.tfrecord', images, labels)
+if __name__ == "__main__":
+    S2Hand_path = "sen1floods11/v1.1/data/flood_events/HandLabeled/S2Hand/"
+    LabelHand_path = "sen1floods11/v1.1/data/flood_events/HandLabeled/LabelHand/"
+    splits_path = "sen1floods11/v1.1/splits/flood_handlabeled/"
+
+    bolivia_data_path = os.path.join(splits_path, "flood_bolivia_data.csv")
+    train_data_path = os.path.join(splits_path, "flood_train_data.csv")
+    val_data_path = os.path.join(splits_path, "flood_valid_data.csv")
+    test_data_path = os.path.join(splits_path, "flood_test_data.csv")
+
+    bolivia_data = pd.read_csv(bolivia_data_path, header=None, names=["scene", "mask"])
+    train_data = pd.read_csv(train_data_path, header=None, names=["scene", "mask"])
+    valid_data = pd.read_csv(val_data_path, header=None, names=["scene", "mask"])
+    test_data = pd.read_csv(test_data_path, header=None, names=["scene", "mask"])
+
+    write_tfrecord(
+        "bolivia_dataset.tfrecord", bolivia_data, S2Hand_path, LabelHand_path
+    )
+    write_tfrecord("train_dataset.tfrecord", train_data, S2Hand_path, LabelHand_path)
+    write_tfrecord("valid_dataset.tfrecord", valid_data, S2Hand_path, LabelHand_path)
+    write_tfrecord("test_dataset.tfrecord", test_data, S2Hand_path, LabelHand_path)
