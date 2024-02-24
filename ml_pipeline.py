@@ -8,6 +8,7 @@ import tfrecord_utils
 import utils
 from model_training import train_optimize  # noqa: F401
 from itertools import chain, combinations
+import mlflow_utils
 
 
 def get_dataset(
@@ -109,10 +110,32 @@ def powerset(iterable, include_empty=True):
     return list(chain.from_iterable(combinations(s, r) for r in range(n, len(s) + 1)))
 
 
-def get_features_combinations(df: pd.DataFrame) -> list[tuple[list[str]]]:
+def get_features_combinations(df: pd.DataFrame) -> list[tuple[str]]:
     combinations = powerset(df.columns, include_empty=False)
 
     return combinations
+
+
+def clean_finished_combinations(
+    combinations: list[dict], experiment_name: str
+) -> list[tuple[list[str]]]:
+    finished_configs = mlflow_utils.get_finished_configs(experiment_name)
+
+    skipped_configs = [
+        combination for combination in combinations if combination in finished_configs
+    ]
+
+    if len(skipped_configs) > 0:
+        print(f"Skipped {len(skipped_configs)} configurations")
+
+    # Getting the cleaned combinations that are not in finished_configs
+    cleaned_combinations = [
+        combination
+        for combination in combinations
+        if combination not in finished_configs
+    ]
+
+    return cleaned_combinations
 
 
 def ml_pipeline(
@@ -127,11 +150,17 @@ def ml_pipeline(
     train_images = utils.dn2reflectance(train_images)
     valid_images = utils.dn2reflectance(valid_images)
 
+    # convert to float32 to avoid overflow
+    train_images = train_images.astype(np.float32)
+    valid_images = valid_images.astype(np.float32)
+
     train_df = convert_to_df(train_images, train_labels)
     valid_df = convert_to_df(valid_images, val_labels)
 
     train_df = feature_engineering(train_df)
     valid_df = feature_engineering(valid_df)
+
+    train_df = train_df.sample(frac=0.1, random_state=42)  # TODO remove this line
 
     X_train = train_df.drop(target, axis=1)
     y_train = train_df[target]
@@ -139,16 +168,26 @@ def ml_pipeline(
     X_valid = valid_df.drop(target, axis=1)
     y_valid = valid_df[target]
 
-    print(
-        "Get the best parameters for first optimization on the entire dataset to avoid optimizing on the mlflow runs (second optimization will be done on the registered model)"
-    )
-
-    best_estimator, best_params, best_score = train_optimize(
-        pd.concat([X_train, X_valid]), pd.concat([y_train, y_valid])
-    )  # TODO
+    # best_estimator, best_params, best_score = train_optimize(X_train, y_train)  # Wasn't used
 
     print("Creating the features combinations...")
     features_combinations = get_features_combinations(X_train)
+
+    print("Starting MLflow server...")
+    mlflow_tracking_uri = mlflow_utils.start_mlflow_server()
+
+    experiment_id, mlflow_client = mlflow_utils.set_mlflow(
+        experiment_name, mlflow_tracking_uri=mlflow_tracking_uri
+    )
+
+    # TODO remove trim (testing purposes)
+    features_combinations = features_combinations[:10]
+
+    features_combinations = clean_finished_combinations(
+        features_combinations, experiment_name
+    )
+
+    print("Trainings runs on MLflow experiment...")
 
 
 if __name__ == "__main__":
