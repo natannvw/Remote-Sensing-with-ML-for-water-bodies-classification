@@ -19,10 +19,10 @@ def train_optimize(X_train, y_train):
     # }
 
     param_grid = {
-        "n_estimators": [100, 150, 200, 250, 300],
-        "max_depth": [4, 5, 8, 15, None],
-        "min_samples_split": [2, 5, 10, 15],
-        "min_samples_leaf": [1, 2, 5],
+        "n_estimators": [100, 200, 300],
+        "max_depth": [5, 10, 15, None],
+        "min_samples_split": [2, 5],
+        "min_samples_leaf": [1, 2, 3],
     }
 
     # Create a RandomForestClassifier
