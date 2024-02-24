@@ -34,23 +34,26 @@ def get_dataset(
 
     images, labels, chip_ids = tfrecord_utils.parse_tfrecord(path)
 
-    return images, labels
+    return images, labels, chip_ids
 
 
-def convert_to_df(images, labels):
-    n_images, bands, height, width = images.shape
+def convert_to_df(images, labels=None):
+    shape = images.shape
+    n_images, bands, height, width = shape
 
     # train_images_flattened = raster.datacube.reshape(bands, -1).T
     train_images_flattened = images.reshape(-1, bands)
-    train_labels_flattened = labels.flatten()
+    if labels is not None:
+        train_labels_flattened = labels.flatten()
 
     wavelengths = utils.get_satellite_wavelength("sentinel2")
     bands_names = utils.get_bands_names(wavelengths)
 
     df = pd.DataFrame(train_images_flattened, columns=bands_names)
-    df["label"] = train_labels_flattened
+    if labels is not None:
+        df["label"] = train_labels_flattened
 
-    return df
+    return df, shape
 
 
 def calc_ndwi_df(df: pd.DataFrame, satellite: str = "sentinel2") -> pd.DataFrame:
@@ -101,8 +104,8 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
 
 def ml_pipeline() -> RandomForestClassifier:
     # Train model
-    train_images, train_labels = get_dataset(data="train")
-    valid_images, val_labels = get_dataset(data="valid")
+    train_images, train_labels, _ = get_dataset(data="train")
+    valid_images, val_labels, _ = get_dataset(data="valid")
 
     train_images = utils.dn2reflectance(train_images)
     valid_images = utils.dn2reflectance(valid_images)
@@ -111,8 +114,8 @@ def ml_pipeline() -> RandomForestClassifier:
     train_images = train_images.astype(np.float32)
     valid_images = valid_images.astype(np.float32)
 
-    train_df = convert_to_df(train_images, train_labels)
-    valid_df = convert_to_df(valid_images, val_labels)
+    train_df, _ = convert_to_df(train_images, train_labels)
+    valid_df, _ = convert_to_df(valid_images, val_labels)
 
     train_df = feature_engineering(train_df)
     valid_df = feature_engineering(valid_df)
@@ -138,10 +141,56 @@ def ml_pipeline() -> RandomForestClassifier:
 
     print("Accuracy on validation set:", accuracy)
 
-    return model
+    return best_estimator
+
+
+def predict_pipeline(
+    model: RandomForestClassifier,
+    image: np.ndarray,
+) -> np.ndarray:
+    image = utils.dn2reflectance(image)
+
+    # convert to float32 to avoid overflow
+    image = image.astype(np.float32)
+    test_df, shape = convert_to_df(image)
+
+    # Adding features
+    features = list(model.feature_names_in_)
+    if "NDVI" in features:
+        test_df["NDWI"] = calc_ndwi_df(test_df, satellite="sentinel2")
+
+    target = "label"
+    X_test = test_df.drop(target, axis=1)
+
+    y_pred = model.predict(X_test)
+
+    _, _, height, width = shape
+    y_pred_reshaped = y_pred.reshape(height, width)
+
+    return y_pred_reshaped
 
 
 if __name__ == "__main__":
-    model = ml_pipeline()
+    model = ml_pipeline()  # TODO: Uncomment this line
+    # model = RandomForestClassifier()  # TODO: Remove this line
 
-    a = 1
+    # Predict on test data
+    test_images, test_labels, chip_ids = get_dataset(data="bolivia")
+
+    # Select the chip_id
+    chip_id = 129334
+    image = test_images[chip_ids == chip_id]
+    label = test_labels[chip_ids == chip_id]
+
+    predicted = predict_pipeline(model, image)
+
+    from matplotlib import pyplot as plt
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(predicted, cmap="turbo")
+    ax[0].set_title("Predicted Image")
+    ax[1].imshow(label, cmap="turbo")
+    ax[1].set_title("Label")
+    title = f"Predicted Image and Label for Chip ID {chip_id}"
+    plt.suptitle(title)
+    plt.show()

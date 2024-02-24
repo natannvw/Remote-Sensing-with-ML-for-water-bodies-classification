@@ -303,9 +303,9 @@ def optimize_ndwi_threshold(
 def visualize_comparison(
     scene,
     ground_truth,
+    chip_id,
     bands_names,
     threshold,
-    title="NDWI vs Ground Truth",
     nodata=-1,
 ):
     ndwi_mask = classify_ndwi(
@@ -320,7 +320,7 @@ def visualize_comparison(
     ax[0].set_title("NDWI-based Water Detection")
     ax[1].imshow(ground_truth, cmap="turbo")
     ax[1].set_title("Ground Truth")
-    plt.suptitle(title)
+    plt.suptitle(title=f"NDWI vs Ground Truth for Chip ID {chip_id}")
     plt.show()
 
 
