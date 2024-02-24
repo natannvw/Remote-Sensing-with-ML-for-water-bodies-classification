@@ -167,6 +167,6 @@ if __name__ == "__main__":
     ax[0].set_title("Band {}".format(band_number))
     ax[1].imshow(label, cmap="turbo")
     ax[1].set_title("Label")
-    title = "Decoded Image and Label from TFRecord for Chip ID {}".format(chip_id)
+    title = f"Decoded Image and Label from TFRecord for Chip ID {chip_id}"
     plt.suptitle(title)
     plt.show()
