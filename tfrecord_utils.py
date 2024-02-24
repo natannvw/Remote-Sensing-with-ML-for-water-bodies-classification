@@ -143,17 +143,30 @@ if __name__ == "__main__":
         lambda example_proto: _parse_function(example_proto, feature_description)
     )
 
-    for parsed_record in parsed_dataset.take(1):
-        image_bytes = parsed_record["image"].numpy()
-        label_bytes = parsed_record["label"].numpy()
+    idx = 1
+    parsed_record = next(iter(parsed_dataset.skip(idx)))
 
-        image = decode_image(image_bytes)
-        label = decode_label(label_bytes)
+    image_bytes = parsed_record["image"].numpy()
+    label_bytes = parsed_record["label"].numpy()
 
-        plt.figure()
-        plt.imshow(image[5, :, :], cmap="turbo")
+    image = decode_image(image_bytes)
+    label = decode_label(label_bytes)
 
-        plt.figure()
-        plt.imshow(label, cmap="turbo")
+    plt.figure()
+    plt.imshow(image[5, :, :], cmap="turbo")
 
-        plt.show()
+    plt.figure()
+    plt.imshow(label, cmap="turbo")
+
+    plt.show()
+
+    band_number = 6
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    ax[0].imshow(image[(band_number - 1), :, :], cmap="turbo")
+    ax[0].set_title("Band {}".format(band_number))
+    ax[1].imshow(label, cmap="turbo")
+    ax[1].set_title("Label")
+    title = ("Decoded Image and Label from TFRecord",)
+    plt.suptitle(title)
+    plt.show()
