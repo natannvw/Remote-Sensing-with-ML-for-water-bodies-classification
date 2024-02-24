@@ -152,14 +152,7 @@ if __name__ == "__main__":
     image = decode_image(image_bytes)
     label = decode_label(label_bytes)
 
-    plt.figure()
-    plt.imshow(image[5, :, :], cmap="turbo")
-
-    plt.figure()
-    plt.imshow(label, cmap="turbo")
-
-    plt.show()
-
+    # Display the image and label
     band_number = 3
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
