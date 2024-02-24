@@ -117,28 +117,31 @@ def ml_pipeline() -> RandomForestClassifier:
     train_df = feature_engineering(train_df)
     valid_df = feature_engineering(valid_df)
 
-    train_df = train_df.sample(frac=0.1, random_state=42)  # TODO remove this line
+    # Because the dataset is too big, we will sample a fraction of it (ML is not a good for this task (images), but it is just an example. Better use CNNs or other deep learning models)
+    fraction = 0.0001
+    train_df = train_df.sample(frac=fraction, random_state=42)
+    valid_df = valid_df.sample(frac=fraction, random_state=42)
 
     target = "label"
 
     X_train = train_df.drop(target, axis=1)
     y_train = train_df[target]
 
-    # best_estimator, best_params, best_score = train_optimize(X_train, y_train)  # Wasn't used
-
-    model = RandomForestClassifier(random_state=42)
-
-    model.fit(
-        X_train, y_train
-    )  # MLflow triggers logging automatically upon model fitting
-
     X_valid = valid_df.drop(target, axis=1)
     y_valid = valid_df[target]
 
-    y_pred = model.predict(X_valid)
+    best_estimator, best_params, best_score = train_optimize(X_train, y_train)
+
+    y_pred = best_estimator.predict(X_valid)
 
     accuracy = accuracy_score(y_valid, y_pred)
 
+    print("Accuracy on validation set:", accuracy)
+
+    return model
+
 
 if __name__ == "__main__":
-    ml_pipeline()
+    model = ml_pipeline()
+
+    a = 1
