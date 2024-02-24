@@ -89,6 +89,7 @@ def get_feature_description() -> dict:
     return {
         "image": tf.io.FixedLenFeature([], tf.string),
         "label": tf.io.FixedLenFeature([], tf.string),
+        "chip_id": tf.io.FixedLenFeature([1], tf.int64),
     }
 
 
@@ -115,6 +116,10 @@ def decode_label(label):
     label[label == 255] = -1  # convert 255 back to -1
 
     return label
+
+
+def decode_chip_id(chip_id):
+    return chip_id.numpy()[0]
 
 
 if __name__ == "__main__":
@@ -146,20 +151,22 @@ if __name__ == "__main__":
     idx = 1
     parsed_record = next(iter(parsed_dataset.skip(idx)))
 
-    image_bytes = parsed_record["image"].numpy()
-    label_bytes = parsed_record["label"].numpy()
+    image_bytes = parsed_record["image"]
+    label_bytes = parsed_record["label"]
+    chip_id = parsed_record["chip_id"]
 
     image = decode_image(image_bytes)
     label = decode_label(label_bytes)
+    chip_id = decode_chip_id(chip_id)
 
     # Display the image and label
-    band_number = 3
+    band_number = 8
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     ax[0].imshow(image[(band_number - 1), :, :], cmap="turbo")
     ax[0].set_title("Band {}".format(band_number))
     ax[1].imshow(label, cmap="turbo")
     ax[1].set_title("Label")
-    title = "Decoded Image and Label from TFRecord"
+    title = "Decoded Image and Label from TFRecord for Chip ID {}".format(chip_id)
     plt.suptitle(title)
     plt.show()
