@@ -122,7 +122,7 @@ def ml_pipeline() -> RandomForestClassifier:
     train_df = feature_engineering(train_df)
     valid_df = feature_engineering(valid_df)
 
-    # Because the dataset is too big, we will sample a fraction of it (ML is not a good for this task (images), but it is just an example. Better use CNNs or other deep learning models)
+    # Because the dataset is too big, we will sample a fraction of it (ML is not a good choise for this task (images), but it is just an example. Better use CNNs or other cv models)
     fraction = 0.001
     train_df = train_df.sample(frac=fraction, random_state=42)
     valid_df = valid_df.sample(frac=fraction, random_state=42)
