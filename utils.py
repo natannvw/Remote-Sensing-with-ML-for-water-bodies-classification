@@ -320,7 +320,7 @@ def visualize_comparison(
     ax[0].set_title("NDWI-based Water Detection")
     ax[1].imshow(ground_truth, cmap="turbo")
     ax[1].set_title("Ground Truth")
-    plt.suptitle(title=f"NDWI vs Ground Truth for Chip ID {chip_id}")
+    plt.suptitle(f"NDWI vs Ground Truth for Chip ID {chip_id}")
     plt.show()
 
 
