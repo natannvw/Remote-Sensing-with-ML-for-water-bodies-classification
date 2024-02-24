@@ -322,13 +322,3 @@ def visualize_comparison(
     ax[1].set_title("Ground Truth")
     plt.suptitle(f"NDWI vs Ground Truth for Chip ID {chip_id}")
     plt.show()
-
-
-# from matplotlib import pyplot as plt
-
-# plt.imshow(scenes_list[0][0, :, :], cmap='gray')
-
-
-# import importlib
-
-# importlib.reload(utils)
