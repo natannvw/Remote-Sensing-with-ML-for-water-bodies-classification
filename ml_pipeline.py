@@ -96,8 +96,27 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df["NDWI"] = calc_ndwi_df(df, satellite="sentinel2")
 
     return df
+
+
+def powerset(iterable, include_empty=True):
+    s = list(iterable)
+
+    if include_empty:
+        n = 0
+    else:
+        n = 1
+
+    return list(chain.from_iterable(combinations(s, r) for r in range(n, len(s) + 1)))
+
+
+def get_features_combinations(df: pd.DataFrame) -> list[tuple[list[str]]]:
+    combinations = powerset(df.columns, include_empty=False)
+
+    return combinations
+
+
 def ml_pipeline(
-    target: str = "water",
+    target: str = "label",
     experiment_name: str = "SenFloods",
     retrive_registered_model: bool = False,
 ) -> RandomForestClassifier:
@@ -110,10 +129,26 @@ def ml_pipeline(
 
     train_df = convert_to_df(train_images, train_labels)
     valid_df = convert_to_df(valid_images, val_labels)
-    model = RandomForestClassifier()
 
     train_df = feature_engineering(train_df)
     valid_df = feature_engineering(valid_df)
+
+    X_train = train_df.drop(target, axis=1)
+    y_train = train_df[target]
+
+    X_valid = valid_df.drop(target, axis=1)
+    y_valid = valid_df[target]
+
+    print(
+        "Get the best parameters for first optimization on the entire dataset to avoid optimizing on the mlflow runs (second optimization will be done on the registered model)"
+    )
+
+    best_estimator, best_params, best_score = train_optimize(
+        pd.concat([X_train, X_valid]), pd.concat([y_train, y_valid])
+    )  # TODO
+
+    print("Creating the features combinations...")
+    features_combinations = get_features_combinations(X_train)
 
 
 if __name__ == "__main__":
