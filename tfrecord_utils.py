@@ -160,13 +160,13 @@ if __name__ == "__main__":
 
     plt.show()
 
-    band_number = 6
+    band_number = 3
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     ax[0].imshow(image[(band_number - 1), :, :], cmap="turbo")
     ax[0].set_title("Band {}".format(band_number))
     ax[1].imshow(label, cmap="turbo")
     ax[1].set_title("Label")
-    title = ("Decoded Image and Label from TFRecord",)
+    title = "Decoded Image and Label from TFRecord"
     plt.suptitle(title)
     plt.show()
