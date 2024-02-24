@@ -7,14 +7,7 @@ import pandas as pd
 import tfrecord_utils
 import utils
 from model_training import train_optimize  # noqa: F401
-from itertools import chain, combinations
-import mlflow_utils
-import ray
-from tqdm.auto import tqdm
 
-from mlflow.entities import RunStatus
-from mlflow.tracking import MlflowClient
-import mlflow
 from sklearn.metrics import accuracy_score
 
 
@@ -106,113 +99,7 @@ def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def powerset(iterable, include_empty=True):
-    s = list(iterable)
-
-    if include_empty:
-        n = 0
-    else:
-        n = 1
-
-    return list(chain.from_iterable(combinations(s, r) for r in range(n, len(s) + 1)))
-
-
-def get_features_combinations(df: pd.DataFrame) -> list[tuple[str]]:
-    combinations = powerset(df.columns, include_empty=False)
-
-    return combinations
-
-
-def clean_finished_combinations(
-    combinations: list[dict], experiment_name: str
-) -> list[tuple[list[str]]]:
-    finished_configs = mlflow_utils.get_finished_configs(experiment_name)
-
-    skipped_configs = [
-        combination for combination in combinations if combination in finished_configs
-    ]
-
-    if len(skipped_configs) > 0:
-        print(f"Skipped {len(skipped_configs)} configurations")
-
-    # Getting the cleaned combinations that are not in finished_configs
-    cleaned_combinations = [
-        combination
-        for combination in combinations
-        if combination not in finished_configs
-    ]
-
-    return cleaned_combinations
-
-
-@ray.remote
-def train(
-    features_combination: tuple[list[str]],
-    target: str,
-    train_df: pd.DataFrame,
-    valid_df: pd.DataFrame,
-    experiment_id: int,
-    mlflow_client: MlflowClient,
-) -> None:
-    run = mlflow_client.create_run(experiment_id)
-    run_id = run.info.run_id
-
-    try:
-        mlflow_client.log_param(run_id, "features", features_combination)
-
-        with mlflow.start_run(run_id=run_id):
-            # log_models=False to avoid logging the model for memory and computation efficiency. The model will be logged later in the register.
-            mlflow.sklearn.autolog(log_models=False, silent=True)
-
-            X_train = train_df[list(features_combination)]
-            y_train = train_df[target]
-
-            model = RandomForestClassifier(random_state=42)
-
-            model.fit(
-                X_train, y_train
-            )  # MLflow triggers logging automatically upon model fitting
-
-            X_valid = valid_df[features_combination]
-            y_valid = valid_df[target]
-
-            y_pred = model.predict(X_valid)
-
-            accuracy = accuracy_score(y_valid, y_pred)
-
-            # mlflow.log_metric("accuracy", accuracy)
-            mlflow_client.log_metric(run_id, "accuracy", accuracy)
-
-        mlflow_client.set_terminated(
-            run_id, status=RunStatus.to_string(RunStatus.FINISHED)
-        )
-
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        mlflow_client.set_terminated(
-            run_id, status=RunStatus.to_string(RunStatus.FAILED)
-        )
-        raise  # Re-raise the exception to mark run as failed
-
-    except KeyboardInterrupt:
-        # If the run is interrupted (e.g., by pressing Ctrl+C), log it as KILLED
-        print("Run interrupted by user.")
-        mlflow_client.set_terminated(
-            run_id, status=RunStatus.to_string(RunStatus.KILLED)
-        )
-        raise  # Re-raise the exception to mark run as failed
-
-    else:
-        # If everything goes well, the run will be logged as FINISHED
-        pass
-
-
-def ml_pipeline(
-    target: str = "label",
-    # experiment_name: str = "SenFloods",
-    experiment_name: str = "Test 1",
-    retrive_registered_model: bool = False,
-) -> RandomForestClassifier:
+def ml_pipeline() -> RandomForestClassifier:
     # Train model
     train_images, train_labels = get_dataset(data="train")
     valid_images, val_labels = get_dataset(data="valid")
@@ -232,66 +119,25 @@ def ml_pipeline(
 
     train_df = train_df.sample(frac=0.1, random_state=42)  # TODO remove this line
 
+    target = "label"
+
     X_train = train_df.drop(target, axis=1)
-    # y_train = train_df[target]
+    y_train = train_df[target]
 
     # best_estimator, best_params, best_score = train_optimize(X_train, y_train)  # Wasn't used
 
-    print("Creating the features combinations...")
-    features_combinations = get_features_combinations(X_train)
+    model = RandomForestClassifier(random_state=42)
 
-    print("Starting MLflow server...")
-    mlflow_tracking_uri = mlflow_utils.start_mlflow_server()
+    model.fit(
+        X_train, y_train
+    )  # MLflow triggers logging automatically upon model fitting
 
-    experiment_id, mlflow_client = mlflow_utils.set_mlflow(
-        experiment_name, mlflow_tracking_uri=mlflow_tracking_uri
-    )
+    X_valid = valid_df.drop(target, axis=1)
+    y_valid = valid_df[target]
 
-    # TODO remove trim (testing purposes)
-    features_combinations = features_combinations[:10]
+    y_pred = model.predict(X_valid)
 
-    features_combinations = clean_finished_combinations(
-        features_combinations, experiment_name
-    )
-
-    print("Trainings runs on MLflow experiment...")
-
-    tasks = [
-        train.remote(
-            combination,
-            target=target,
-            train_df=train_df,
-            valid_df=valid_df,
-            experiment_id=experiment_id,
-            mlflow_client=mlflow_client,
-        )
-        for combination in features_combinations
-    ]
-
-    # Initialize a tqdm progress bar
-    pbar = tqdm(total=len(tasks))
-
-    # List to store the results
-    results = []
-
-    # Continue until all tasks are done
-    while tasks:
-        # Wait for any one task to finish
-        finished, tasks = ray.wait(tasks)
-
-        # Update the results list and the progress bar for each finished task
-        for result_id in finished:
-            result = ray.get(result_id)
-            results.append(result)
-            pbar.update(1)
-
-    # Close the progress bar
-    pbar.close()
-
-    # Shutdown Ray
-    ray.shutdown()
-
-    print("Finished trainings runs")
+    accuracy = accuracy_score(y_valid, y_pred)
 
 
 if __name__ == "__main__":
