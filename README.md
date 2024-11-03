@@ -5,4 +5,4 @@ Classify floods and water bodies using Sentinel 2 satellite scenes with remote s
 
 `pip install -r requierements.txt`
 
-## Please check the `submission.ipynb` notebook
+## Please check the `Run.ipynb` notebook
